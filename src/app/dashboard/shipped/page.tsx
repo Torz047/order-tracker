@@ -15,7 +15,7 @@ const SHIPPED_COLS = [
 ]
 
 export default function ShippedPage() {
-  const [orders, setOrders] = useState([])
+  const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const supabase = createClient()
