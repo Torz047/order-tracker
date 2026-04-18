@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
-import { Order, ROLE_EDITABLE_FIELDS, COLUMN_GROUPS, COLUMN_LABELS } from '@/lib/types'
+import { Order, ROLE_EDITABLE_FIELDS } from '@/lib/types'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -10,6 +10,17 @@ interface Props {
   order?: Order
   onClose: () => void
   onSaved: () => void
+}
+
+// Fixed dropdown options
+const DROPDOWNS: Partial<Record<keyof Order, string[]>> = {
+  bu: ['Test', 'Burn In'],
+  site: ['ESPP', 'EE', 'ENS', 'ETS', 'ESPS', 'ESPJ'],
+  order_status: ['New', 'Repeat', 'Return'],
+  type: ['Assy', 'Pin', 'Parts', 'Jig', 'Device'],
+  general_status: ['On Going', 'Delay', 'Delivered', 'Done'],
+  consumption_status: ['Active', 'Consumed', 'Pending'],
+  ng_ok: ['OK', 'NG'],
 }
 
 const FIELD_TYPES: Partial<Record<keyof Order, string>> = {
@@ -36,7 +47,26 @@ const FIELD_TYPES: Partial<Record<keyof Order, string>> = {
   ng_affecting_delivery: 'boolean',
 }
 
-// All editable fields (not metadata)
+// Column labels - part_set_a renamed to Parts ETA
+const FIELD_LABELS: Partial<Record<keyof Order, string>> = {
+  bu: 'BU', site: 'SITE', uai_air: 'UAI/AIR', customer: 'CUSTOMER',
+  po_date_received: 'PO DATE RECEIVED', cpo: 'CPO', alliance_po: 'ALLIANCE PO#',
+  po_item: 'PO ITEM#', prs: 'PRS', qty: 'QTY', order_status: 'ORDER STATUS',
+  type: 'TYPE', part_number: 'P/N', description: 'DESCRIPTION', dn: 'D/N',
+  rev: 'REV', consumption_status: 'CONSUMPTION STATUS',
+  part_set_a: 'PARTS ETA',  // ← renamed here
+  crdd: 'CRDD', po_rdd: 'PO RDD', cpo_rdd: 'CPO RDD', rdd: 'RDD',
+  alliance_unit_price: 'ALLIANCE UNIT PRICE', total_alliance_price: 'TOTAL ALLIANCE PRICE',
+  customer_unit_price: 'CUSTOMER UNIT PRICE', total_customer_price: 'TOTAL CUSTOMER PRICE',
+  assembly_po: 'ASSEMBLY PO#', po_month_year: 'PO MONTH-YEAR', quotation_no: 'QUOTATION#',
+  pin_count: 'PIN COUNT', unit_price: 'UNIT PRICE', total_cost: 'TOTAL COST',
+  total_pins: 'TOTAL PINS', assembly_invoice_no: 'ASSEMBLY INVOICE#', pin_type: 'PIN TYPE',
+  etd_month: 'ETD MONTH', etd: 'ETD', eta: 'ETA', ng_ok: 'NG/OK',
+  assembly_invoice: 'ASSEMBLY INVOICE', so_no: 'SO#', sap_etd: 'SAP ETD',
+  general_status: 'GENERAL STATUS', remarks1: 'REMARKS1', tracking_no: 'TRACKING#',
+  invoice_no: 'INVOICE#', drawing_delay: 'DRAWING DELAY',
+}
+
 const ALL_FORM_FIELDS: (keyof Order)[] = [
   'bu','site','uai_air','customer','po_date_received','cpo','alliance_po','po_item',
   'prs','qty','order_status','type','part_number','description','dn','rev',
@@ -62,6 +92,15 @@ const ALL_FORM_FIELDS: (keyof Order)[] = [
   'date_of_qc_test','esps',
 ]
 
+// Auto-calculate NG/OK: ETD + 3 days vs RDD
+function calcNgOk(etd?: string, rdd?: string): string {
+  if (!etd || !rdd) return ''
+  const etdDate = new Date(etd)
+  const rddDate = new Date(rdd)
+  etdDate.setDate(etdDate.getDate() + 3)
+  return etdDate <= rddDate ? 'OK' : 'NG'
+}
+
 export default function OrderFormModal({ mode, order, onClose, onSaved }: Props) {
   const { profile } = useAuth()
   const [form, setForm] = useState<Partial<Order>>(order || {})
@@ -76,13 +115,23 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
   }
 
   function set(field: keyof Order, value: any) {
-    setForm(prev => ({ ...prev, [field]: value }))
+    setForm(prev => {
+      const updated = { ...prev, [field]: value }
+      // Auto-calc NG/OK when ETD or RDD changes
+      if (field === 'etd' || field === 'rdd') {
+        const etd = field === 'etd' ? value : prev.etd
+        const rdd = field === 'rdd' ? value : prev.rdd
+        const result = calcNgOk(etd, rdd)
+        if (result) updated.ng_ok = result
+      }
+      return updated
+    })
   }
 
   async function handleSave() {
     setSaving(true)
     const payload = { ...form, updated_by: profile?.id }
-    if (mode === 'create') payload.created_by = profile?.id
+    if (mode === 'create') (payload as any).created_by = profile?.id
 
     const { error } = mode === 'create'
       ? await supabase.from('orders').insert(payload)
@@ -97,7 +146,6 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
     setSaving(false)
   }
 
-  // Form groups with their fields
   const formGroups = [
     { label: 'Order Info', fields: ['bu','site','uai_air','customer','po_date_received','cpo','alliance_po','po_item','prs','qty','order_status','type'] as (keyof Order)[] },
     { label: 'Part Details', fields: ['part_number','description','dn','rev','consumption_status','part_set_a','general_status','ng_ok','so_no'] as (keyof Order)[] },
@@ -107,6 +155,8 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
     { label: 'Tracking', fields: ['tracking_no','invoice_no','temporary_part_no','temporary_drawing_no','remarks1','remarks','action_item','ng_nature','ng_summary_remarks','internal_ng_ok','customer_po_for_sales','ti_customer','fy','esps','drawing_lt','delivery_lt','assembly_lt','delay_from_crdd'] as (keyof Order)[] },
     { label: 'Delay Flags', fields: ['drawing_delay','sales_flag','process_flag','logistics_flag','design_flag','pin_delay','ng_part','machining_capacity','customer_delay','holiday','supplier_internal_ng','internal_ng','ng_affecting_delivery'] as (keyof Order)[] },
   ]
+
+  const ngOkAuto = calcNgOk(form.etd, form.rdd)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 bg-black/50 backdrop-blur-sm overflow-y-auto">
@@ -123,16 +173,14 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
           </button>
         </div>
 
-        {/* Tab navigation */}
-        <div className="flex gap-1 px-4 pt-3 overflow-x-auto border-b border-slate-100 pb-0">
+        {/* Tabs */}
+        <div className="flex gap-1 px-4 pt-3 overflow-x-auto border-b border-slate-100">
           {formGroups.map((g, i) => (
             <button
               key={g.label}
               onClick={() => setActiveGroup(i)}
               className={`px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition ${
-                activeGroup === i
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+                activeGroup === i ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               {g.label}
@@ -140,14 +188,48 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
           ))}
         </div>
 
+        {/* NG/OK auto-calc banner */}
+        {activeGroup === 1 && (form.etd || form.rdd) && (
+          <div className={`mx-6 mt-3 px-4 py-2 rounded-lg text-sm flex items-center gap-2 ${
+            ngOkAuto === 'OK' ? 'bg-green-50 text-green-700 border border-green-200' :
+            ngOkAuto === 'NG' ? 'bg-red-50 text-red-700 border border-red-200' :
+            'bg-slate-50 text-slate-600 border border-slate-200'
+          }`}>
+            <span className="font-bold">{ngOkAuto || '—'}</span>
+            <span className="text-xs opacity-70">
+              Auto-calculated: ETD ({form.etd || '?'}) + 3 days vs RDD ({form.rdd || '?'})
+            </span>
+          </div>
+        )}
+
         {/* Form fields */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {formGroups[activeGroup].fields.map(field => {
               const fieldType = FIELD_TYPES[field] || 'text'
-              const label = COLUMN_LABELS[field] || field.replace(/_/g, ' ').toUpperCase()
+              const label = FIELD_LABELS[field] || field.replace(/_/g, ' ').toUpperCase()
               const disabled = !canEdit(field)
               const value = form[field]
+              const options = DROPDOWNS[field]
+
+              // NG/OK is auto-calculated - show as read-only badge
+              if (field === 'ng_ok') {
+                const computed = calcNgOk(form.etd, form.rdd)
+                const display = computed || (value ? String(value) : '—')
+                return (
+                  <div key={field}>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
+                    <div className={`px-3 py-2 rounded-lg text-sm font-semibold border flex items-center gap-2 ${
+                      display === 'OK' ? 'bg-green-50 text-green-700 border-green-200' :
+                      display === 'NG' ? 'bg-red-50 text-red-700 border-red-200' :
+                      'bg-slate-50 text-slate-500 border-slate-200'
+                    }`}>
+                      {display}
+                      {computed && <span className="text-xs font-normal opacity-60">auto</span>}
+                    </div>
+                  </div>
+                )
+              }
 
               if (fieldType === 'boolean') {
                 return (
@@ -161,6 +243,28 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
                     />
                     <span className="text-sm text-slate-700">{label}</span>
                   </label>
+                )
+              }
+
+              // Dropdown field
+              if (options) {
+                return (
+                  <div key={field}>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
+                    <select
+                      value={value !== null && value !== undefined ? String(value) : ''}
+                      onChange={e => !disabled && set(field, e.target.value || null)}
+                      disabled={disabled}
+                      className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                        disabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed border-slate-100' : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <option value="">— Select —</option>
+                      {options.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
                 )
               }
 
@@ -189,12 +293,7 @@ export default function OrderFormModal({ mode, order, onClose, onSaved }: Props)
             {editableFields === 'all' ? 'All fields editable' : `Editable: ${(editableFields as string[]).join(', ')}`}
           </p>
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-100 transition"
-            >
-              Cancel
-            </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-100 transition">Cancel</button>
             <button
               onClick={handleSave}
               disabled={saving}

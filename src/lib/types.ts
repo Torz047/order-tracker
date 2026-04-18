@@ -182,7 +182,7 @@ export const COLUMN_LABELS: Partial<Record<keyof Order, string>> = {
   po_date_received: 'PO DATE RECEIVED', cpo: 'CPO', alliance_po: 'ALLIANCE PO#',
   po_item: 'PO ITEM#', prs: 'PRS', qty: 'QTY', order_status: 'ORDER STATUS',
   type: 'TYPE', part_number: 'P/N', description: 'DESCRIPTION', dn: 'D/N',
-  rev: 'REV', consumption_status: 'CONSUMPTION STATUS', part_set_a: 'PART SET A',
+  rev: 'REV', consumption_status: 'CONSUMPTION STATUS', part_set_a: 'PARTS ETA',
   crdd: 'CRDD', po_rdd: 'PO RDD', cpo_rdd: 'CPO RDD', rdd: 'RDD',
   alliance_unit_price: 'ALLIANCE UNIT PRICE', total_alliance_price: 'TOTAL ALLIANCE PRICE',
   customer_unit_price: 'CUSTOMER UNIT PRICE', total_customer_price: 'TOTAL CUSTOMER PRICE',
