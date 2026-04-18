@@ -61,7 +61,7 @@ export default function ShippedPage() {
   })
 
   function exportCSV() {
-    const headers = SHIPPED_COLS.map(c => (COLUMN_LABELS[c] || c)).join(',')
+    const headers = SHIPPED_COLS.map(c => (COLUMN_LABELS as any)[c] || c).join(',')
     const rows = filtered.map(o =>
       SHIPPED_COLS.map(c => {
         const val = o[c]
