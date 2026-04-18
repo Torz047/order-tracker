@@ -42,7 +42,7 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  const handleDemoLogin = async (account) => {
+  const handleDemoLogin = async (account: any) => {
     setLoadingDemo(account.role)
     const { error } = await supabase.auth.signInWithPassword({
       email: account.email,
