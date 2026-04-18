@@ -21,6 +21,7 @@ export default function DashboardPage() {
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false })
+      .not('general_status', 'ilike', '%delivered%')
     if (error) toast.error('Failed to load orders')
     else setOrders((data as Order[]) || [])
     setLoading(false)
