@@ -21,7 +21,6 @@ export default function DashboardPage() {
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false })
-      .not('general_status', 'ilike', '%delivered%')
     if (error) toast.error('Failed to load orders')
     else setOrders((data as Order[]) || [])
     setLoading(false)
@@ -59,8 +58,8 @@ export default function DashboardPage() {
 
   const stats = {
     total: orders.length,
-    ongoing: orders.filter(o => o.general_status?.toLowerCase() === 'on going').length,
-    delay: orders.filter(o => o.general_status?.toLowerCase().includes('delay')).length,
+    ongoing: orders.filter(o => o.general_status?.toLowerCase() === 'ongoing').length,
+    delay: orders.filter(o => o.general_status?.toLowerCase() === 'delayed').length,
     done: orders.filter(o => o.general_status?.toLowerCase() === 'done').length,
   }
 

@@ -18,7 +18,7 @@ const DROPDOWNS: Partial<Record<keyof Order, string[]>> = {
   site: ['ESPP', 'EE', 'ENS', 'ETS', 'ESPS', 'ESPJ'],
   order_status: ['New', 'Repeat', 'Return'],
   type: ['Assy', 'Pin', 'Parts', 'Jig', 'Device'],
-  general_status: ['On Going', 'Delay', 'Delivered', 'Done'],
+  general_status: ['Ongoing', 'Delayed', 'Delivered', 'Forwarded to Stocks', 'To Smartsheet', 'Closed'],
   consumption_status: ['Active', 'Consumed', 'Pending'],
   ng_ok: ['OK', 'NG'],
 }
